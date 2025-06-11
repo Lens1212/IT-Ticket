@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Manager di Dipartimento{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">Dashboard Manager di Dipartimento</h1>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ dept_stats.pending_approval }}</h4>
+                            <p class="card-text">In Attesa di Approvazione</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-clock fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ dept_stats.approved_this_month }}</h4>
+                            <p class="card-text">Approvati Questo Mese</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-check fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">{{ dept_stats.rejected_this_month }}</h4>
+                            <p class="card-text">Rifiutati Questo Mese</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-times fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Tickets -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Ticket in Attesa di Approvazione</h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_tickets %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Titolo</th>
+                                        <th>Categoria</th>
+                                        <th>Creatore</th>
+                                        <th>Data Creazione</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ticket in pending_tickets %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" class="text-decoration-none">
+                                                #{{ ticket.id }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" class="text-decoration-none">
+                                                {{ ticket.title }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ ticket.category_rel.name }}</span>
+                                        </td>
+                                        <td>{{ ticket.creator.username }}</td>
+                                        <td>{{ ticket.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <form method="POST" action="{{ url_for('ticket_action', ticket_id=ticket.id) }}" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                    <input type="hidden" name="action" value="approve_dept">
+                                                    <button type="submit" class="btn btn-success btn-sm" 
+                                                            onclick="return confirm('Sei sicuro di voler approvare questo ticket?')">
+                                                        <i class="fas fa-check"></i> Approva
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="{{ url_for('ticket_action', ticket_id=ticket.id) }}" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                    <input type="hidden" name="action" value="reject_dept">
+                                                    <button type="submit" class="btn btn-danger btn-sm" 
+                                                            onclick="return confirm('Sei sicuro di voler rifiutare questo ticket?')">
+                                                        <i class="fas fa-times"></i> Rifiuta
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Nessun ticket in attesa di approvazione.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Azioni Rapide</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <a href="{{ url_for('ticket_list') }}" class="btn btn-outline-primary btn-block mb-2">
+                                <i class="fas fa-list"></i> Visualizza Tutti i Ticket del Dipartimento
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-block mb-2">
+                                <i class="fas fa-home"></i> Torna alla Dashboard Principale
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-refresh every 30 seconds
+    setTimeout(function(){
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}

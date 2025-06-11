@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket Approvals - IT Support Tickets{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1>
+            <i class="bi bi-check-circle me-2"></i>
+            Approvazioni in Sospeso
+        </h1>
+        <p class="lead">Ticket in attesa della tua approvazione</p>
+    </div>
+</div>
+
+<div class="alert alert-info mb-4">
+    <div class="d-flex">
+        <div class="me-3">
+            <i class="bi bi-info-circle-fill fs-3"></i>
+        </div>
+        <div>
+            <h5>Nuovo Processo di Approvazione</h5>
+            <p class="mb-0">Quando approvi un ticket, ti verrà richiesto di selezionare un membro del team IT a cui assegnarlo immediatamente. Questa modifica al processo consente una gestione più efficiente dei ticket.</p>
+        </div>
+    </div>
+</div>
+
+{% if tickets %}
+<div class="row">
+    {% for ticket in tickets %}
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">#{{ ticket.id }} - {{ ticket.title }}</h5>
+                <span class="badge bg-warning">Awaiting Approval</span>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Category:</strong> {{ ticket.category_rel.name }}
+                </div>
+                <div class="mb-3">
+                    <strong>Requested by:</strong> {{ ticket.creator.username }} {% if ticket.creator.department_rel %}({{ ticket.creator.department_rel.name }}){% endif %}
+                </div>
+                <div class="mb-3">
+                    <strong>Requested on:</strong> {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+                <div class="mb-3">
+                    <strong>Description:</strong>
+                    <p class="mt-2">{{ ticket.description | nl2br }}</p>
+                </div>
+                
+                {% if ticket.attachments.all() %}
+                <div class="mb-3">
+                    <strong>Attachments:</strong>
+                    <ul class="list-group mt-2">
+                        {% for attachment in ticket.attachments %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center bg-dark">
+                            <span>{{ attachment.filename }}</span>
+                            <a href="{{ url_for('download_file', filename=attachment.file_path) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-download"></i> Download
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" class="btn btn-outline-primary">
+                        <i class="bi bi-eye me-1"></i> Visualizza Dettagli
+                    </a>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#approveModal{{ ticket.id }}">
+                            <i class="bi bi-check-circle me-1"></i> Approva
+                        </button>
+                        
+                        <!-- Modal per l'approvazione e assegnazione -->
+                        <div class="modal fade" id="approveModal{{ ticket.id }}" tabindex="-1" aria-labelledby="approveModalLabel{{ ticket.id }}" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-success text-white">
+                                        <h5 class="modal-title" id="approveModalLabel{{ ticket.id }}">
+                                            <i class="bi bi-check-circle me-2"></i>
+                                            Approva e Assegna Ticket #{{ ticket.id }}
+                                        </h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="alert alert-info">
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            Seleziona un membro del team IT a cui assegnare questo ticket.
+                                        </div>
+                                        
+                                        <form method="POST" action="{{ url_for('ticket_action', ticket_id=ticket.id) }}" id="approveForm{{ ticket.id }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+                                            <input type="hidden" name="action" value="approve">
+                                            
+                                            <div class="mb-3">
+                                                <label for="assignee_id{{ ticket.id }}" class="form-label fw-bold">Seleziona Membro IT</label>
+                                                <select class="form-select" id="assignee_id{{ ticket.id }}" name="assignee_id" required>
+                                                    <option value="">-- Seleziona un membro del team IT --</option>
+                                                    {% for user in it_users %}
+                                                    <option value="{{ user.id }}">{{ user.username }}{% if user.department_rel %} ({{ user.department_rel.name }}){% endif %}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </form>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                                        <button type="submit" form="approveForm{{ ticket.id }}" class="btn btn-success">
+                                            <i class="bi bi-check-circle me-1"></i> Approva e Assegna
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <form method="POST" action="{{ url_for('ticket_action', ticket_id=ticket.id) }}" class="d-inline ms-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+                            <input type="hidden" name="action" value="reject">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-x-circle me-1"></i> Rifiuta
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('ticket_action', ticket_id=ticket.id) }}" id="approveForm{{ ticket.id }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+                            <input type="hidden" name="action" value="complete">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check2-all me-1"></i> Completato
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center p-5">
+        <i class="bi bi-check-circle fs-1 text-success mb-3"></i>
+        <h3>No Pending Approvals</h3>
+        <p class="text-muted">There are currently no tickets waiting for your approval.</p>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary mt-2">
+            Return to Dashboard
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

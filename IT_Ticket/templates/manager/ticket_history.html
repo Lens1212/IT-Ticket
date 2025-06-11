@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Cronologia Ticket - IT Support Tickets{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1>
+            <i class="bi bi-clock-history me-2"></i>
+            Cronologia Ticket
+        </h1>
+        <p class="lead">Visualizza e gestisci tutti i ticket del sistema</p>
+    </div>
+</div>
+
+<!-- Filtri -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label for="status" class="form-label">Stato</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="">Tutti gli stati</option>
+                    {% for status in statuses %}
+                    <option value="{{ status.name }}" {% if request.args.get('status') == status.name %}selected{% endif %}>
+                        {{ status.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="category" class="form-label">Categoria</label>
+                <select class="form-select" id="category" name="category">
+                    <option value="">Tutte le categorie</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" {% if request.args.get('category') == category.id|string %}selected{% endif %}>
+                        {{ category.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-filter me-1"></i> Applica Filtri
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if tickets %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Titolo</th>
+                <th>Categoria</th>
+                <th>Creato da</th>
+                <th>Assegnato a</th>
+                <th>Stato</th>
+                <th>Data Creazione</th>
+                <th>Ultima Modifica</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ticket in tickets %}
+            <tr>
+                <td>#{{ ticket.id }}</td>
+                <td>{{ ticket.title }}</td>
+                <td>{{ ticket.category_rel.name }}</td>
+                <td>{{ ticket.creator.username }}</td>
+                <td>
+                    {% if ticket.assignee %}
+                    {{ ticket.assignee.username }}
+                    {% else %}
+                    <span class="text-muted">Non assegnato</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge {% if ticket.status.name == 'AWAITING_APPROVAL' %}bg-warning
+                        {% elif ticket.status.name == 'NEW' %}bg-info
+                        {% elif ticket.status.name == 'ASSIGNED' %}bg-primary
+                        {% elif ticket.status.name == 'IN_PROGRESS' %}bg-success
+                        {% elif ticket.status.name == 'WAITING_USER' %}bg-warning
+                        {% elif ticket.status.name == 'RESOLVED' %}bg-success
+                        {% elif ticket.status.name == 'CLOSED' %}bg-secondary
+                        {% else %}bg-secondary{% endif %}">
+                        {{ ticket.status.name }}
+                    </span>
+                </td>
+                <td>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <div class="btn-group">
+                        <a href="{{ url_for('ticket_detail', ticket_id=ticket.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if ticket.status.name == 'AWAITING_APPROVAL' %}
+                        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#approveModal{{ ticket.id }}">
+                            <i class="bi bi-check-circle"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    {% if ticket.status.name == 'AWAITING_APPROVAL' %}
+                    <!-- Modal per l'approvazione -->
+                    <div class="modal fade" id="approveModal{{ ticket.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-success text-white">
+                                    <h5 class="modal-title">Approva Ticket #{{ ticket.id }}</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Sei sicuro di voler approvare questo ticket?</p>
+                                    <form method="POST" action="{{ url_for('ticket_action', ticket_id=ticket.id) }}" id="approveForm{{ ticket.id }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="action" value="approve">
+                                        <div class="mb-3">
+                                            <label for="assignee{{ ticket.id }}" class="form-label">Assegna a:</label>
+                                            <select class="form-select" id="assignee{{ ticket.id }}" name="assignee_id" required>
+                                                <option value="">Seleziona un membro IT</option>
+                                                {% for user in it_users %}
+                                                <option value="{{ user.id }}">{{ user.username }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                                    <button type="submit" form="approveForm{{ ticket.id }}" class="btn btn-success">
+                                        <i class="bi bi-check-circle me-1"></i> Approva
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center p-5">
+        <i class="bi bi-inbox fs-1 text-muted mb-3"></i>
+        <h3>Nessun Ticket Trovato</h3>
+        <p class="text-muted">Non ci sono ticket che corrispondono ai criteri di ricerca selezionati.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

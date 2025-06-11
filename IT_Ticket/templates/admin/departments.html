@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Departments - IT Support Tickets{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1>
+            <i class="bi bi-building me-2"></i>
+            Gestione Dipartimenti e Manager
+        </h1>
+        <p class="text-muted">Visualizza e gestisci l'associazione tra dipartimenti e i loro manager.</p>
+    </div>
+</div>
+
+{% if departments %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-list-ul me-2"></i>
+            Dipartimenti e Manager Associati
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Dipartimento</th>
+                        <th>Descrizione</th>
+                        <th>Manager Attuale</th>
+                        <th>Utenti nel Dipartimento</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for department in departments %}
+                    <tr>
+                        <td>
+                            <strong>{{ department.name }}</strong>
+                        </td>
+                        <td>{{ department.description or "-" }}</td>
+                        <td>
+                            {% if department.managed_by %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-person-check me-1"></i>
+                                    {{ department.managed_by.username }}
+                                </span>
+                                <br>
+                                <small class="text-muted">{{ department.managed_by.email }}</small>
+                            {% else %}
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                    Nessun Manager
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ department.users.count() }} utenti</span>
+                            {% if department.users.count() > 0 %}
+                                <button type="button" class="btn btn-sm btn-outline-info ms-2" 
+                                        data-bs-toggle="collapse" data-bs-target="#users-{{ department.id }}" 
+                                        aria-expanded="false">
+                                    <i class="bi bi-eye"></i> Visualizza
+                                </button>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-primary" 
+                                    onclick="assignManager({{ department.id }}, '{{ department.name|escapejs }}', '{{ department.managed_by.id if department.managed_by else '' }}')">
+                                <i class="bi bi-person-gear"></i> 
+                                {% if department.managed_by %}Cambia{% else %}Assegna{% endif %} Manager
+                            </button>
+                        </td>
+                    </tr>
+                    {% if department.users.count() > 0 %}
+                    <tr>
+                        <td colspan="5" class="p-0">
+                            <div class="collapse" id="users-{{ department.id }}">
+                                <div class="card card-body m-3">
+                                    <h6>Utenti nel dipartimento {{ department.name }}:</h6>
+                                    <div class="row">
+                                        {% for user in department.users %}
+                                        <div class="col-md-6 col-lg-4 mb-2">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-person me-2"></i>
+                                                <div>
+                                                    <strong>{{ user.username }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">{{ user.role.value }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center p-5">
+        <i class="bi bi-building fs-1 text-muted mb-3"></i>
+        <h3>Nessun dipartimento trovato</h3>
+        <p class="text-muted">Non ci sono dipartimenti nel sistema.</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Assign Manager Modal -->
+<div class="modal fade" id="assignManagerModal" tabindex="-1" aria-labelledby="assignManagerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignManagerModalLabel">Assegna Manager di Dipartimento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('assign_department_manager') }}" id="assignManagerForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Dipartimento:</label>
+                        <p class="form-control-plaintext" id="departmentName"></p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="manager_id" class="form-label">Seleziona Manager</label>
+                        <select class="form-select" id="manager_id" name="manager_id" required>
+                            <option value="">Seleziona un utente...</option>
+                            {% for user in available_managers %}
+                                <option value="{{ user.id }}">
+                                    {{ user.username }} ({{ user.email }}) - {{ user.role.value }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">
+                            Nota: L'utente selezionato verrà automaticamente promosso a "Department Manager" se non lo è già.
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Importante:</strong> Se il dipartimento ha già un manager, questo verrà sostituito.
+                        Il manager precedente manterrà il suo ruolo ma non gestirà più questo dipartimento.
+                    </div>
+                    
+                    <input type="hidden" id="department_id" name="department_id" value="">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Assegna Manager</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function assignManager(departmentId, departmentName, currentManagerId) {
+        document.getElementById('departmentName').textContent = departmentName;
+        document.getElementById('department_id').value = departmentId;
+        const managerSelect = document.getElementById('manager_id');
+        managerSelect.value = '';
+        if (currentManagerId) {
+            Array.from(managerSelect.options).forEach(option => {
+                if (option.value === currentManagerId) {
+                    option.selected = true;
+                }
+            });
+        }
+        new bootstrap.Modal(document.getElementById('assignManagerModal')).show();
+    }
+    // Reset solo i campi dinamici, NON il campo CSRF
+    document.getElementById('assignManagerModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('departmentName').textContent = '';
+        document.getElementById('department_id').value = '';
+        document.getElementById('manager_id').value = '';
+    });
+</script>
+{% endblock %}
